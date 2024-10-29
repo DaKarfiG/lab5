@@ -18,6 +18,12 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,9 +35,11 @@ public class MainActivity extends AppCompatActivity {
     ListView listViewProducts;
 
     List<Product> products;
+    DatabaseReference databaseProducts;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        databaseProducts = FirebaseDatabase.getInstance().getReference("products");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -64,7 +72,79 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        databaseProducts.addValueEventListener(new ValueEventListener() {
+            @Override onDataChange(DataSnapshot dataSnapshot){
+                products.clear();
+
+                //iterate through all nodes
+                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
+                    //getting product
+                    Product product = postSnapshot.getValue(Product.class);
+                    //Adding product to the list
+                    products.add(product);
+
+                }
+                    ProductList productsAdapter = new ProductList(MainActivity.this, products);
+                    //Attaching the adapter to the ListView
+                    listViewProducts.setAdapter(productsAdapter);
+
+            }
+            @Override
+            public void onCancelled(DatabaseError databaseError){
+
+            }
+        });
     }
+
+    private void addProduct(){
+        String name = editTextName.getText().toString().trim();
+        double price = Double.parseDouble(String.valueOf(editTextPrice.getText().toString()));
+
+        // Checking if the value is provided
+        if (!TextUtils.isEmpty(name)) {
+
+            String id = databaseProducts.push().getKey();
+
+            Product product = new Product(id, name, price);
+
+            databaseProducts.child(id).setValue(product);
+
+            editTextName.setText("");
+            editTextPrice.setText("");
+            // Displaying a success toast
+            Toast.makeText(this, "Product added", Toast.LENGTH_LONG).show();
+        } else {
+            // If the value is not given, display a toast
+            Toast.makeText(this, "Please enter a name", Toast.LENGTH_LONG).show();
+        }
+
+    }
+    //update producto n databse
+    private void updateProduct(String id, String name, double price) {
+        // Getting the specified product reference
+        DatabaseReference dR = FirebaseDatabase.getInstance().getReference("products").child(id);
+
+        // Updating the product
+        Product product = new Product(id, name, price);
+        dR.setValue(product);
+
+        // Displaying a success toast
+        Toast.makeText(getApplicationContext(), "Product Updated", Toast.LENGTH_LONG).show();
+    }
+
+    private void deleteProduct(String id) {
+        // Getting the specified product reference
+        DatabaseReference dR = FirebaseDatabase.getInstance().getReference("products").child(id);
+
+        // Removing the product
+        dR.removeValue();
+
+        // Displaying a success toast
+        Toast.makeText(getApplicationContext(), "Product Deleted", Toast.LENGTH_LONG).show();
+    }
+
+
+
 
 
     private void showUpdateDeleteDialog(final String productId, String productName) {
